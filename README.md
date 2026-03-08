@@ -8,9 +8,12 @@ Let is changeable, reassignable but no re-declaring. It is block-based and stays
 Const is Block Scoped. Const is unique. We cannot reassign a const variable. Const behaves just like let when it comes to hoisting. In modern coding, we usually use const for everything by default.
 
 2️⃣ What is the spread operator (...)?
-Anaswer:
+Anaswer: spread operator is used for creating Array. It’s great for making a copy. This is super common when we want to update a user's profile without deleting their old info. It merges two arrays/objects and it can turns an array into a list of items.
 
 
 3️⃣ What is the difference between map(), filter(), and forEach()?
+Answer: 
+
 4️⃣ What is an arrow function?
+Answer: Arrow Function is a shorter, modern way to write functions in JavaScript. 
 5️⃣ What are template literals?
