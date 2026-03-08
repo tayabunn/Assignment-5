@@ -8,6 +8,9 @@ Let is changeable, reassignable but no re-declaring. It is block-based and stays
 Const is Block Scoped. Const is unique. We cannot reassign a const variable. Const behaves just like let when it comes to hoisting. In modern coding, we usually use const for everything by default.
 
 2️⃣ What is the spread operator (...)?
+Anaswer:
+
+
 3️⃣ What is the difference between map(), filter(), and forEach()?
 4️⃣ What is an arrow function?
 5️⃣ What are template literals?

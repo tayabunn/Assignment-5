@@ -1,56 +1,80 @@
 /**
- * script.js - Labels Integrated
+ * script.js - Senior Dev Refactor
  */
 
-let allIssues = []; 
+let allIssues = [];
+let currentSearchQuery = "";
 
 const getPriorityStyles = (priority) => {
     const p = (priority || 'low').toLowerCase();
-    if (p === 'high') return 'bg-red-500';
-    if (p === 'medium') return 'bg-amber-500';
-    return 'bg-slate-500'; 
+    const map = {
+        high: 'bg-red-500',
+        medium: 'bg-amber-500',
+        low: 'bg-slate-500'
+    };
+    return map[p] || map.low;
 };
 
-// 1. Fetch Data
-const loadInitialData = () => {
+/**
+ * Global Loading Wrapper
+ * @param {Function} action - The async task to perform
+ * @param {number} delay - Forced delay in ms
+ */
+const withLoading = async (action, delay = 500) => {
     const container = document.getElementById('issues-container');
-    container.innerHTML = `<div class="col-span-full flex justify-center py-20"><span class="loading loading-spinner loading-lg text-primary"></span></div>`;
+    container.innerHTML = `
+        <div class="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+            <span class="loading loading-bars loading-lg text-primary"></span>
+            <p class="text-sm text-gray-400 animate-pulse">Fetching latest issues...</p>
+        </div>`;
     
-    fetch('https://phi-lab-server.vercel.app/api/v1/lab/issues')
-        .then(response => response.json())
-        .then(json => {
-            const rawData = json.data || json; 
-            if (Array.isArray(rawData)) {
-                allIssues = rawData;
-                displayIssues(allIssues);
-            }
-        })
-        .catch(err => {
-            console.error("Fetch failed:", err);
-            container.innerHTML = `<p class="col-span-full text-center text-red-500 font-bold">Network Error.</p>`;
-        });
+    // Execute the action and the delay in parallel
+    const [result] = await Promise.all([
+        action(),
+        new Promise(resolve => setTimeout(resolve, delay))
+    ]);
+    return result;
 };
 
-// 2. Display with Labels
+// 1. Fetch Data with Search Support
+const loadData = async (query = "") => {
+    const baseUrl = 'https://phi-lab-server.vercel.app/api/v1/lab/issues';
+    const url = query 
+        ? `${baseUrl}/search?q=${encodeURIComponent(query)}`
+        : baseUrl;
+
+    try {
+        const response = await fetch(url);
+        const json = await response.json();
+        allIssues = json.data || json;
+        if (!Array.isArray(allIssues)) allIssues = [];
+        return allIssues;
+    } catch (err) {
+        console.error("Data fetch failed:", err);
+        return [];
+    }
+};
+
+// 2. Display Logic
 const displayIssues = (issues) => {
     const container = document.getElementById('issues-container');
     const countEl = document.getElementById('totalCount');
     if (countEl) countEl.innerText = `${issues.length} Issues`;
     
-    if (container) {
-        container.innerHTML = issues.length === 0 
-            ? `<div class="col-span-full text-center py-10 text-gray-400">No results found.</div>`
-            : issues.map(issue => createIssueCardHtml(issue)).join('');
+    if (!container) return;
+
+    if (issues.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400">No issues found matching your criteria.</div>`;
+    } else {
+        container.innerHTML = issues.map(issue => createIssueCardHtml(issue)).join('');
     }
 };
 
-// 3. Card Generator (Added Labels)
+// 3. Card Template (Unchanged Logic)
 const createIssueCardHtml = (issue) => {
     const status = (issue.status || 'open').toLowerCase();
     const priority = (issue.priority || 'low').toLowerCase();
     const id = issue._id || issue.id || '0000';
-    
-    // Labels Logic: Map through labels and create small badges
     const labelsHtml = (issue.labels || [])
         .map(label => `<span class="badge badge-outline text-[9px] font-bold opacity-60">${label}</span>`)
         .join('');
@@ -67,11 +91,7 @@ const createIssueCardHtml = (issue) => {
           </span>
         </div>
         <h3 class="mt-4 text-base font-bold text-gray-900 line-clamp-1">${issue.title || 'Untitled'}</h3>
-        
-        <div class="flex flex-wrap gap-1 mt-2 mb-2">
-            ${labelsHtml}
-        </div>
-
+        <div class="flex flex-wrap gap-1 mt-2 mb-2">${labelsHtml}</div>
         <p class="text-xs text-gray-500 line-clamp-2">${issue.description || 'No description'}</p>
         <div class="mt-6 flex items-center justify-between text-[10px] font-bold text-gray-400 border-t pt-4 border-gray-50">
           <span>#${id.toString().slice(-4)} by ${issue.author || 'User'}</span>
@@ -80,7 +100,33 @@ const createIssueCardHtml = (issue) => {
     </div>`;
 };
 
-// 4. Modal (Added Labels)
+// 4. Search Handler with Debounce
+let searchTimeout;
+const handleSearch = (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value;
+    
+    searchTimeout = setTimeout(() => {
+        currentSearchQuery = query;
+        withLoading(() => loadData(query).then(displayIssues), 1000); // 1s delay for search
+    }, 400); // Wait 400ms after typing stops
+};
+
+// 5. Tab Switcher (With 5s delay as requested)
+const switchTab = async (tab) => {
+    if (window.updateTabUI) window.updateTabUI(tab);
+    
+    await withLoading(async () => {
+        // We re-fetch or use local data based on your preference. 
+        // Here we use local data filtered for the tab.
+        const filtered = (tab === 'all') 
+            ? allIssues 
+            : allIssues.filter(i => (i.status || 'open').toLowerCase() === tab.toLowerCase());
+        displayIssues(filtered);
+    }, 5000); // 5 second delay for tab switching
+};
+
+// Modal Logic
 const openIssueModal = (id) => {
     const modal = document.getElementById('issue_details_modal');
     fetch(`https://phi-lab-server.vercel.app/api/v1/lab/issue/${id}`)
@@ -88,7 +134,6 @@ const openIssueModal = (id) => {
         .then(result => {
             const issue = result.data || result;
             const status = (issue.status || 'open').toLowerCase();
-
             document.getElementById('modalHeaderStrip').className = `h-2 w-full ${status === 'open' ? 'bg-emerald-400' : 'bg-violet-400'}`;
             document.getElementById('modalStatus').innerText = status;
             document.getElementById('modalStatus').className = `text-white text-[10px] font-black px-3 py-1 rounded-full uppercase ${status === 'open' ? 'bg-emerald-500' : 'bg-violet-500'}`;
@@ -97,30 +142,26 @@ const openIssueModal = (id) => {
             document.getElementById('modalAuthor').innerText = issue.author || '';
             document.getElementById('modalAssignee').innerText = issue.assignee || 'Unassigned';
             
-            // Render Labels in Modal
             const modalLabelsContainer = document.getElementById('modalLabels');
             if(modalLabelsContainer) {
                 modalLabelsContainer.innerHTML = (issue.labels || [])
                     .map(l => `<span class="badge badge-primary badge-outline font-bold">${l}</span>`)
                     .join('');
             }
-
             const prioBadge = document.getElementById('modalPriority');
             prioBadge.innerText = (issue.priority || 'low').toUpperCase();
             prioBadge.className = `text-white text-[10px] px-3 py-1 rounded font-black ${getPriorityStyles(issue.priority)}`;
-
             modal.showModal();
         });
 };
 
-const switchTab = (tab) => {
-    if (window.updateTabUI) window.updateTabUI(tab);
-    const filtered = (tab === 'all') ? allIssues : allIssues.filter(i => (i.status || 'open').toLowerCase() === tab.toLowerCase());
-    displayIssues(filtered);
-};
-
+// Init
 document.addEventListener('DOMContentLoaded', () => {
-    loadInitialData();
+    // Initial load with 5s delay
+    withLoading(() => loadData().then(displayIssues), 5000);
+
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.addEventListener('input', handleSearch);
 });
 
 window.switchTab = switchTab;
