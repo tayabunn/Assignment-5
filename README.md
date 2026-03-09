@@ -12,7 +12,9 @@ Anaswer: spread operator is used for creating Array. It’s great for making a c
 
 
 3️⃣ What is the difference between map(), filter(), and forEach()?
-Answer: 
+Answer: map() is used to transform every element in an array. It runs a function on each element and returns a new array with the changed values.
+
+
 
 4️⃣ What is an arrow function?
 Answer: Arrow Function is a shorter, modern way to write functions in JavaScript. 
